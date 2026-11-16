@@ -74,8 +74,8 @@ pub struct Fitness {
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct Recovery {
-    pub hrv_7d: Option<f64>,
-    pub hrv_28d: Option<f64>,
+    pub hrv_7d: number | null;
+    pub hrv_28d: number | null;
     /// 7-day HRV vs 28-day baseline, in percent. Strongly negative = watch out.
     pub hrv_vs_baseline_pct: Option<f64>,
     pub resting_hr_7d: Option<f64>,

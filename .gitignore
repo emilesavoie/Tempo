@@ -1,3 +1,31 @@
-/target
+
+# Rust
+/target/
+/backend/target/
+**/*.rs.bk
+
+# Node.js
+node_modules/
+/frontend/dist/
+/frontend/.vite/
+
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
+
+# Local application configuration
 tricoach.toml
+tempo.toml
+backend/tricoach.toml
+backend/tempo.toml
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db

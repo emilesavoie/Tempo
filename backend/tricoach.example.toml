@@ -1,0 +1,41 @@
+# Copy this file to tricoach.toml and edit it.
+# Dates are quoted strings in YYYY-MM-DD form. Days are mon tue wed thu fri sat sun.
+
+[race]
+name = "Ironman 70.3 Maine"
+date = "2027-07-25"
+
+# Weekly training hours for a normal (non-recovery) week: swim + bike + run,
+# not counting gym. The most recent entry whose `from` date has passed applies,
+# so add a new entry whenever the time you have available changes.
+[[hours]]
+from = "2026-11-16"
+hours = 6.0
+
+# Example: more time once the base phase is over.
+# [[hours]]
+# from = "2027-01-04"
+# hours = 8.0
+
+# What a normal week looks like. Again, the latest entry that has started applies.
+[[rhythm]]
+from = "2026-11-16"
+gym_days = ["mon", "tue"]   # you lift on these days: no hard sessions then
+swim_sessions = 0           # no swimming for now
+long_bike_day = "sat"
+long_run_day = "sun"
+
+[[rhythm]]
+from = "2027-01-04"
+gym_days = []
+swim_sessions = 3
+swim_preferred_days = ["wed"]
+long_bike_day = "sat"
+long_run_day = "sun"
+# rest_days = ["fri"]       # days with no training at all
+
+[safety]
+# Never plan more than this many percent above the last full week you actually
+# trained (swim + bike + run). Protects against jumping straight back to full
+# volume. 0 turns the cap off.
+max_weekly_ramp_pct = 30

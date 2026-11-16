@@ -1,7 +1,7 @@
 //! Deterministic season skeleton: which phase each week falls in and how many
-//! hours to aim for. No LLM involved. Later, the LLM fills in the actual
-//! sessions *within* these constraints, so the overall structure never depends
-//! on a model's mood.
+//! hours to aim for. No LLM involved. The LLM fills in the actual sessions
+//! *within* these constraints, so the overall structure never depends on a
+//! model's mood.
 //!
 //! Weeks run Monday-Sunday. "Weeks to race" counts back from race week (0).
 //!
@@ -13,6 +13,8 @@
 //! | Taper | 0 to 1 (2 weeks)     | shed fatigue, arrive fresh                |
 //!
 //! Outside peak and taper, every 4th week is a recovery week at 70% hours.
+//! The 4-week cycle is counted from the first week of the hours schedule in
+//! the config, so it stays put no matter which day you run the tool.
 //! Taper weeks run at 60% (week before) and 40% (race week, excluding the race).
 
 use std::fmt;
@@ -25,7 +27,7 @@ use crate::config::Config;
 const TAPER_WEEKS: i64 = 2;
 const PEAK_WEEKS: i64 = 3;
 const BUILD_WEEKS: i64 = 12;
-const RECOVERY_EVERY: usize = 4;
+const RECOVERY_EVERY: i64 = 4;
 const RECOVERY_FACTOR: f64 = 0.7;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -39,7 +41,8 @@ pub enum Phase {
 
 impl fmt::Display for Phase {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
+        // `pad` (unlike `write_str`) honours width settings such as `{:<6}`.
+        f.pad(match self {
             Phase::Base => "base",
             Phase::Build => "build",
             Phase::Peak => "peak",
@@ -83,12 +86,12 @@ fn round1(x: f64) -> f64 {
 }
 
 /// The Monday on or before `date`.
-fn monday_on_or_before(date: NaiveDate) -> NaiveDate {
+pub(crate) fn monday_on_or_before(date: NaiveDate) -> NaiveDate {
     date - Duration::days(i64::from(date.weekday().num_days_from_monday()))
 }
 
 /// The Monday on or after `date`.
-fn monday_on_or_after(date: NaiveDate) -> NaiveDate {
+pub(crate) fn monday_on_or_after(date: NaiveDate) -> NaiveDate {
     let days_until = (7 - date.weekday().num_days_from_monday()) % 7;
     date + Duration::days(i64::from(days_until))
 }
@@ -97,15 +100,21 @@ fn monday_on_or_after(date: NaiveDate) -> NaiveDate {
 /// and including race week. Returns no weeks if the race has passed.
 pub fn build_plan(cfg: &Config, today: NaiveDate) -> Plan {
     let race_week = monday_on_or_before(cfg.race.date);
+    // Recovery weeks are counted from the start of the hours schedule so the
+    // pattern is the same whenever the plan is built.
+    let anchor = cfg
+        .hours
+        .first()
+        .map_or(today, |h| monday_on_or_before(h.from));
     let mut week_start = monday_on_or_after(today);
     let mut weeks = Vec::new();
 
-    let mut index = 0usize;
     while week_start <= race_week {
         let weeks_to_race = (race_week - week_start).num_days() / 7;
+        let weeks_since_anchor = (week_start - anchor).num_days() / 7;
         let phase = phase_for(weeks_to_race);
         let recovery = matches!(phase, Phase::Base | Phase::Build)
-            && index % RECOVERY_EVERY == RECOVERY_EVERY - 1;
+            && weeks_since_anchor.rem_euclid(RECOVERY_EVERY) == RECOVERY_EVERY - 1;
         let factor = match (phase, weeks_to_race) {
             (Phase::Taper, 0) => 0.4,
             (Phase::Taper, _) => 0.6,
@@ -120,7 +129,6 @@ pub fn build_plan(cfg: &Config, today: NaiveDate) -> Plan {
             target_hours: round1(cfg.hours_for(week_start) * factor),
         });
         week_start += Duration::days(7);
-        index += 1;
     }
 
     Plan {
@@ -158,7 +166,7 @@ impl fmt::Display for Plan {
             writeln!(
                 f,
                 "{:<11} {:>7}  {:<6} {:>5.1}{}",
-                w.week_start,
+                w.week_start.to_string(),
                 w.weeks_to_race,
                 w.phase,
                 w.target_hours,
@@ -239,6 +247,23 @@ mod tests {
             .iter()
             .filter(|w| matches!(w.phase, Phase::Peak | Phase::Taper))
             .all(|w| !w.recovery));
+    }
+
+    #[test]
+    fn recovery_weeks_do_not_shift_with_the_day_you_run_it() {
+        let early = build_plan(&cfg(""), d("2026-11-15"));
+        let later = build_plan(&cfg(""), d("2026-11-25")); // a week and a bit later
+        let find = |plan: &Plan, date: &str| {
+            plan.weeks
+                .iter()
+                .find(|w| w.week_start == d(date))
+                .map(|w| (w.recovery, w.target_hours))
+                .unwrap()
+        };
+        assert_eq!(find(&early, "2026-12-07"), (true, 4.2));
+        assert_eq!(find(&later, "2026-12-07"), (true, 4.2));
+        assert_eq!(find(&early, "2026-12-14"), find(&later, "2026-12-14"));
+        assert!(!find(&later, "2026-11-30").0);
     }
 
     #[test]

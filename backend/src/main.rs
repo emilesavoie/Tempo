@@ -5,6 +5,7 @@ mod models;
 mod planner;
 mod readiness;
 mod summary;
+mod api;
 
 use std::io::Write as _;
 use std::path::PathBuf;
@@ -58,6 +59,17 @@ enum Command {
         #[arg(long, conflicts_with_all = ["send", "keep"])]
         cleanup: bool,
     },
+
+    /// Start the HTTP API server
+    Serve {
+        /// Address to bind the server to
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+
+        /// Port to listen on
+        #[arg(long, default_value_t = 3000)]
+        port: u16,
+    },
 }
 
 #[tokio::main]
@@ -72,6 +84,7 @@ async fn main() -> Result<()> {
             keep,
             cleanup,
         } => run_write_test(send, keep, cleanup).await,
+        Command::Serve { host, port } => run_server(&host, port).await
     }
 }
 
@@ -183,5 +196,24 @@ async fn run_write_test(send: bool, keep: bool, cleanup: bool) -> Result<()> {
         .delete_events_by_external_id(&[calendar::TEST_EXTERNAL_ID])
         .await?;
     println!("Deleted. Reply from intervals.icu: {deleted}");
+    Ok(())
+}
+
+async fn run_server(host: &str, port: u16) -> Result<()> {
+    let client = client_from_env()?;
+    let app = api::router(client);
+
+    let address = format!("{host}:{port}");
+    let listener = tokio::net::TcpListener::bind(&address)
+        .await
+        .with_context(|| format!("failed to bind to {address}"))?;
+
+    println!("Tempo API listening on http://{address}");
+    println!("Dashboard endpoint: http://{address}/api/dashboard");
+
+    axum::serve(listener, app)
+        .await
+        .context("API server encountered an error")?;
+
     Ok(())
 }

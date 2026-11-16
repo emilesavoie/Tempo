@@ -1,0 +1,38 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Geist", sans-serif;
+
+  --color-background: #111315;
+  --color-surface: #1A1D20;
+  --color-border: #292E32;
+  --color-muted: #929995;
+  --color-accent: #D6FF5F;
+}
+
+:root {
+  font-family: "Geist", sans-serif;
+  color: #F2F2EF;
+  background: #111315;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button {
+  cursor: pointer;
+}
